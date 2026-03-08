@@ -192,29 +192,11 @@ export default function RoletaDoNini() {
     const diff = ((targetAngle - normalizedCurrent) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const totalRotation = extraSpins + diff;
 
-    const duration = 6500 + Math.random() * 1500;
+    const duration = 5000 + Math.random() * 1500;
     const start = performance.now();
     const startRot = currentRotation.current;
 
-    // Easing com suspense: desacelera forte perto do fim, hesita, e desliza um último pedaço
-    const easeOut = (t) => {
-      if (t < 0.75) {
-        // Fase 1: desacelera normalmente
-        return 1 - Math.pow(1 - t / 0.75, 3) * 0.35;
-      } else if (t < 0.88) {
-        // Fase 2: quase para — movimento bem lento, suspense
-        const s = (t - 0.75) / 0.13;
-        return 0.65 + s * 0.20;
-      } else if (t < 0.94) {
-        // Fase 3: parece que vai parar... mas desliza mais um pouco
-        const s = (t - 0.88) / 0.06;
-        return 0.85 + s * 0.10;
-      } else {
-        // Fase 4: para de vez suavemente
-        const s = (t - 0.94) / 0.06;
-        return 0.95 + s * 0.05;
-      }
-    };
+    const easeOut = (t) => 1 - Math.pow(1 - t, 4);
 
     const animate = (now) => {
       const elapsed = now - start;
@@ -234,11 +216,26 @@ export default function RoletaDoNini() {
           setTimeout(() => setShowCoffee(false), 3500);
         }, 200);
 
-        // Volta ao ZERO após 4 segundos — sem giro, só reposiciona discretamente
+        // Volta ao ZERO após 4 segundos com animação suave
         setTimeout(() => {
           const returnTarget = getInitialRotation(names.length);
-          currentRotation.current = returnTarget;
-          drawWheel(returnTarget);
+          const fromRot = currentRotation.current;
+          let delta = returnTarget - (fromRot % (2 * Math.PI));
+          if (delta > Math.PI) delta -= 2 * Math.PI;
+          if (delta < -Math.PI) delta += 2 * Math.PI;
+          const returnDuration = 1200;
+          const returnStart = performance.now();
+          const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+          const returnAnim = (now) => {
+            const elapsed = now - returnStart;
+            const progress = Math.min(elapsed / returnDuration, 1);
+            const current = fromRot + delta * easeInOut(progress);
+            currentRotation.current = current;
+            drawWheel(current);
+            if (progress < 1) requestAnimationFrame(returnAnim);
+            else { currentRotation.current = returnTarget; drawWheel(returnTarget); }
+          };
+          requestAnimationFrame(returnAnim);
         }, 4000);
       }
     };
