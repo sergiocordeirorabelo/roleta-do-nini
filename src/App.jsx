@@ -2,19 +2,43 @@ import { useState, useRef, useEffect } from "react";
 
 const DEFAULT_NAMES = ["Nilmar", "Gualter", "Tiago", "Celso", "Sérgio", "Daniel"];
 
+// 🎲 PESOS SECRETOS — quanto maior, mais chance de cair
+// Todos com 1 = chance igual. Coloca 3 em alguém = 3x mais chance!
+const DEFAULT_WEIGHTS = {
+  "Nilmar":  1,
+  "Gualter": 1,
+  "Tiago":   1,
+  "Celso":   1,
+  "Sérgio":  1,
+  "Daniel":  1,
+};
+
 const COLORS = [
   "#FF6B6B", "#FF8E53", "#FFC300", "#2ECC71",
   "#1ABC9C", "#3498DB", "#9B59B6", "#E91E63",
   "#FF5722", "#00BCD4", "#8BC34A", "#FF9800",
 ];
 
+function pickWeightedWinner(names, weights) {
+  const totalWeight = names.reduce((sum, n) => sum + (weights[n] ?? 1), 0);
+  let rand = Math.random() * totalWeight;
+  for (let i = 0; i < names.length; i++) {
+    rand -= weights[names[i]] ?? 1;
+    if (rand <= 0) return i;
+  }
+  return names.length - 1;
+}
+
 export default function RoletaDoNini() {
   const [names, setNames] = useState(DEFAULT_NAMES);
+  const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
   const [newName, setNewName] = useState("");
   const [spinning, setSpinning] = useState(false);
   const [winner, setWinner] = useState(null);
   const [showWinner, setShowWinner] = useState(false);
   const [editMode, setEditMode] = useState(false);
+  const [secretMode, setSecretMode] = useState(false);
+  const centerClickCount = useRef(0);
   const canvasRef = useRef(null);
   const spinRef = useRef(null);
   const currentRotation = useRef(0);
@@ -69,6 +93,7 @@ export default function RoletaDoNini() {
       ctx.restore();
     });
 
+    // Center circle — clicável
     ctx.beginPath();
     ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
     const grad = ctx.createRadialGradient(cx - 6, cy - 6, 2, cx, cy, 28);
@@ -94,19 +119,41 @@ export default function RoletaDoNini() {
     drawWheel(currentRotation.current);
   }, [names]);
 
+  const handleCenterClick = (e) => {
+    const canvas = canvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left - canvas.width / 2;
+    const y = e.clientY - rect.top - canvas.height / 2;
+    if (Math.sqrt(x * x + y * y) < 28) {
+      centerClickCount.current += 1;
+      if (centerClickCount.current >= 5) {
+        centerClickCount.current = 0;
+        setSecretMode((v) => !v);
+      }
+    }
+  };
+
   const spin = () => {
     if (spinning || names.length < 2) return;
     setShowWinner(false);
     setWinner(null);
     setSpinning(true);
 
-    const extraSpins = (5 + Math.random() * 5) * 2 * Math.PI;
-    const randomOffset = Math.random() * 2 * Math.PI;
-    const totalRotation = extraSpins + randomOffset;
+    // Escolhe o vencedor com peso secreto
+    const winnerIndex = pickWeightedWinner(names, weights);
+    const arc = (2 * Math.PI) / names.length;
+
+    // Calcula ângulo para parar na fatia do vencedor
+    const sliceCenter = winnerIndex * arc + arc / 2;
+    const targetAngle = -sliceCenter - Math.PI / 2;
+    const extraSpins = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+    const normalizedCurrent = currentRotation.current % (2 * Math.PI);
+    const diff = ((targetAngle - normalizedCurrent) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const totalRotation = extraSpins + diff;
+
     const duration = 4000 + Math.random() * 1000;
     const start = performance.now();
     const startRot = currentRotation.current;
-
     const easeOut = (t) => 1 - Math.pow(1 - t, 4);
 
     const animate = (now) => {
@@ -120,13 +167,7 @@ export default function RoletaDoNini() {
       if (progress < 1) {
         spinRef.current = requestAnimationFrame(animate);
       } else {
-        currentRotation.current = current;
         setSpinning(false);
-
-        const arc = (2 * Math.PI) / names.length;
-        const normalizedAngle =
-          (((-current - Math.PI / 2) % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
-        const winnerIndex = Math.floor(normalizedAngle / arc) % names.length;
         setWinner(names[winnerIndex]);
         setTimeout(() => setShowWinner(true), 200);
       }
@@ -139,12 +180,15 @@ export default function RoletaDoNini() {
     const trimmed = newName.trim();
     if (trimmed && !names.includes(trimmed) && names.length < 20) {
       setNames([...names, trimmed]);
+      setWeights((w) => ({ ...w, [trimmed]: 1 }));
       setNewName("");
     }
   };
 
   const removeName = (i) => {
+    const removed = names[i];
     setNames(names.filter((_, idx) => idx !== i));
+    setWeights((w) => { const nw = { ...w }; delete nw[removed]; return nw; });
     setShowWinner(false);
     setWinner(null);
   };
@@ -153,20 +197,14 @@ export default function RoletaDoNini() {
     <div style={{
       minHeight: "100vh",
       background: "linear-gradient(135deg, #0d0d1a 0%, #0f1e35 50%, #0d1a0d 100%)",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      padding: "24px 16px",
-      fontFamily: "'Rajdhani', sans-serif",
-      position: "relative",
-      overflow: "hidden",
+      display: "flex", flexDirection: "column", alignItems: "center",
+      padding: "24px 16px", fontFamily: "'Rajdhani', sans-serif",
+      position: "relative", overflow: "hidden",
     }}>
-
       <div style={{
         position: "fixed", inset: 0, zIndex: 0,
         backgroundImage: "linear-gradient(rgba(0,200,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0,200,255,0.04) 1px, transparent 1px)",
-        backgroundSize: "40px 40px",
-        pointerEvents: "none",
+        backgroundSize: "40px 40px", pointerEvents: "none",
       }} />
 
       <style>{`
@@ -178,46 +216,41 @@ export default function RoletaDoNini() {
         .spin-btn:hover:not(:disabled) { transform: scale(1.06) translateY(-2px) !important; filter: brightness(1.15) !important; }
         .spin-btn:active:not(:disabled) { transform: scale(0.97) !important; }
         .name-tag:hover .remove-btn { opacity: 1 !important; }
+        input[type=range] { accent-color: #ff6a00; width: 100%; }
       `}</style>
 
       <div style={{
         position: "fixed", left: 0, right: 0, height: "2px",
         background: "linear-gradient(90deg, transparent, #00c8ff22, transparent)",
-        animation: "scanline 6s linear infinite",
-        zIndex: 1, pointerEvents: "none",
+        animation: "scanline 6s linear infinite", zIndex: 1, pointerEvents: "none",
       }} />
 
+      {/* Title */}
       <div style={{ textAlign: "center", marginBottom: "24px", animation: "floatUp 3s ease-in-out infinite", zIndex: 2 }}>
         <div style={{ fontSize: "11px", letterSpacing: "6px", color: "#00c8ff", textTransform: "uppercase", marginBottom: "6px", fontFamily: "Orbitron, sans-serif" }}>
           ⚡ bem-vindo à ⚡
         </div>
         <h1 style={{
-          fontSize: "clamp(2rem, 6vw, 3.2rem)",
-          margin: 0,
-          fontFamily: "Orbitron, sans-serif",
-          fontWeight: 900,
+          fontSize: "clamp(2rem, 6vw, 3.2rem)", margin: 0,
+          fontFamily: "Orbitron, sans-serif", fontWeight: 900,
           background: "linear-gradient(90deg, #00c8ff, #ff6a00, #00c8ff)",
-          backgroundSize: "200%",
-          WebkitBackgroundClip: "text",
+          backgroundSize: "200%", WebkitBackgroundClip: "text",
           WebkitTextFillColor: "transparent",
           filter: "drop-shadow(0 2px 12px #00c8ff66)",
-          lineHeight: 1.1,
-          letterSpacing: "2px",
-        }}>
-          Roleta do Nini
-        </h1>
+          lineHeight: 1.1, letterSpacing: "2px",
+        }}>Roleta do Nini</h1>
         <div style={{ color: "#4a7a8a", fontSize: "13px", marginTop: "6px", fontFamily: "Rajdhani, sans-serif", letterSpacing: "2px" }}>
           {names.length} PARTICIPANTE{names.length !== 1 ? "S" : ""}
         </div>
       </div>
 
+      {/* Wheel */}
       <div style={{ position: "relative", display: "flex", justifyContent: "center", marginBottom: "24px", zIndex: 2 }}>
         <div style={{
           position: "absolute", top: "50%", left: "50%",
           transform: "translate(-50%, -50%)",
           width: "320px", height: "320px", borderRadius: "50%",
-          animation: "glowPulse 2s ease-in-out infinite",
-          zIndex: 0,
+          animation: "glowPulse 2s ease-in-out infinite", zIndex: 0,
         }} />
         <div style={{
           position: "absolute", top: "-6px", left: "50%",
@@ -226,114 +259,86 @@ export default function RoletaDoNini() {
         }}>
           <div style={{
             width: 0, height: 0,
-            borderLeft: "14px solid transparent",
-            borderRight: "14px solid transparent",
+            borderLeft: "14px solid transparent", borderRight: "14px solid transparent",
             borderTop: "32px solid #00c8ff",
           }} />
         </div>
         <canvas
-          ref={canvasRef}
-          width={300}
-          height={300}
-          style={{ borderRadius: "50%", display: "block", zIndex: 1, position: "relative", border: "2px solid #00c8ff33" }}
+          ref={canvasRef} width={300} height={300}
+          onClick={handleCenterClick}
+          style={{ borderRadius: "50%", display: "block", zIndex: 1, position: "relative", border: "2px solid #00c8ff33", cursor: "pointer" }}
         />
       </div>
 
-      <button
-        className="spin-btn"
-        onClick={spin}
-        disabled={spinning || names.length < 2}
-        style={{
-          background: spinning ? "#0f2233" : "linear-gradient(135deg, #ff6a00, #ee0979)",
-          color: "#fff", border: "none", borderRadius: "8px",
-          padding: "14px 52px", fontSize: "18px",
-          fontFamily: "Orbitron, sans-serif", fontWeight: 700,
-          cursor: spinning || names.length < 2 ? "not-allowed" : "pointer",
-          transition: "all 0.2s ease",
-          boxShadow: "0 8px 24px rgba(255,106,0,0.4)",
-          marginBottom: "20px",
-          opacity: names.length < 2 ? 0.4 : 1,
-          letterSpacing: "3px",
-          textTransform: "uppercase",
-        }}
-      >
+      {/* Spin button */}
+      <button className="spin-btn" onClick={spin} disabled={spinning || names.length < 2} style={{
+        background: spinning ? "#0f2233" : "linear-gradient(135deg, #ff6a00, #ee0979)",
+        color: "#fff", border: "none", borderRadius: "8px",
+        padding: "14px 52px", fontSize: "18px",
+        fontFamily: "Orbitron, sans-serif", fontWeight: 700,
+        cursor: spinning || names.length < 2 ? "not-allowed" : "pointer",
+        transition: "all 0.2s ease", boxShadow: "0 8px 24px rgba(255,106,0,0.4)",
+        marginBottom: "20px", opacity: names.length < 2 ? 0.4 : 1,
+        letterSpacing: "3px", textTransform: "uppercase",
+      }}>
         {spinning ? "⚡ GIRANDO..." : "🎯 GIRAR"}
       </button>
 
+      {/* Winner */}
       {showWinner && winner && (
         <div style={{
           animation: "popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
           background: "linear-gradient(135deg, #0f2233, #1a1a2e)",
-          border: "2px solid #00c8ff",
-          borderRadius: "12px", padding: "18px 36px",
-          marginBottom: "20px", textAlign: "center",
-          boxShadow: "0 8px 40px rgba(0,200,255,0.3)",
-          zIndex: 2,
+          border: "2px solid #00c8ff", borderRadius: "12px",
+          padding: "18px 36px", marginBottom: "20px", textAlign: "center",
+          boxShadow: "0 8px 40px rgba(0,200,255,0.3)", zIndex: 2,
         }}>
           <div style={{ color: "#00c8ff", fontSize: "11px", letterSpacing: "4px", textTransform: "uppercase", fontFamily: "Orbitron, sans-serif" }}>
             ⚡ SORTEADO
           </div>
           <div style={{
-            fontSize: "clamp(1.8rem, 5vw, 2.6rem)",
-            color: "#fff",
-            fontFamily: "Orbitron, sans-serif",
-            fontWeight: 900,
-            textShadow: "0 0 20px #00c8ff",
-            marginTop: "6px",
-            letterSpacing: "2px",
-          }}>
-            {winner}
-          </div>
+            fontSize: "clamp(1.8rem, 5vw, 2.6rem)", color: "#fff",
+            fontFamily: "Orbitron, sans-serif", fontWeight: 900,
+            textShadow: "0 0 20px #00c8ff", marginTop: "6px", letterSpacing: "2px",
+          }}>{winner}</div>
           <div style={{ fontSize: "22px", marginTop: "6px" }}>🏆🎉⚡</div>
         </div>
       )}
 
-      <button
-        onClick={() => setEditMode(!editMode)}
-        style={{
-          background: "transparent", color: "#00c8ff",
-          border: "1px solid #00c8ff44", borderRadius: "8px",
-          padding: "8px 20px", fontSize: "13px",
-          fontFamily: "Rajdhani, sans-serif", fontWeight: 700,
-          cursor: "pointer", marginBottom: "12px",
-          letterSpacing: "2px", textTransform: "uppercase",
-          zIndex: 2,
-        }}
-      >
+      {/* Edit toggle */}
+      <button onClick={() => setEditMode(!editMode)} style={{
+        background: "transparent", color: "#00c8ff",
+        border: "1px solid #00c8ff44", borderRadius: "8px",
+        padding: "8px 20px", fontSize: "13px",
+        fontFamily: "Rajdhani, sans-serif", fontWeight: 700,
+        cursor: "pointer", marginBottom: "12px",
+        letterSpacing: "2px", textTransform: "uppercase", zIndex: 2,
+      }}>
         {editMode ? "✅ FECHAR" : "✏️ EDITAR PARTICIPANTES"}
       </button>
 
       {editMode && (
         <div style={{
           width: "100%", maxWidth: "380px",
-          background: "rgba(0,0,0,0.4)",
-          borderRadius: "12px",
-          border: "1px solid #00c8ff22",
-          padding: "16px",
-          zIndex: 2,
+          background: "rgba(0,0,0,0.4)", borderRadius: "12px",
+          border: "1px solid #00c8ff22", padding: "16px", zIndex: 2, marginBottom: "12px",
         }}>
           <div style={{ display: "flex", gap: "8px", marginBottom: "14px" }}>
-            <input
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
+            <input value={newName} onChange={(e) => setNewName(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && addName()}
-              placeholder="Adicionar nome..."
-              maxLength={20}
+              placeholder="Adicionar nome..." maxLength={20}
               style={{
                 flex: 1, background: "rgba(0,200,255,0.05)",
-                border: "1px solid #00c8ff33",
-                borderRadius: "8px", padding: "10px 14px",
-                color: "#fff", fontFamily: "Rajdhani, sans-serif",
-                fontSize: "15px", outline: "none",
-              }}
-            />
+                border: "1px solid #00c8ff33", borderRadius: "8px",
+                padding: "10px 14px", color: "#fff",
+                fontFamily: "Rajdhani, sans-serif", fontSize: "15px", outline: "none",
+              }} />
             <button onClick={addName} style={{
               background: "linear-gradient(135deg, #ff6a00, #ee0979)",
               border: "none", borderRadius: "8px",
               padding: "10px 16px", color: "#fff", fontSize: "20px", cursor: "pointer",
             }}>+</button>
           </div>
-
           <div style={{ display: "flex", flexWrap: "wrap", gap: "8px" }}>
             {names.map((name, i) => (
               <div key={i} className="name-tag" style={{
@@ -345,21 +350,44 @@ export default function RoletaDoNini() {
                 <div style={{ width: "8px", height: "8px", borderRadius: "2px", background: COLORS[i % COLORS.length], flexShrink: 0 }} />
                 <span style={{ color: "#eee", fontFamily: "Rajdhani, sans-serif", fontSize: "14px", fontWeight: 600, letterSpacing: "1px" }}>{name}</span>
                 <button className="remove-btn" onClick={() => removeName(i)} style={{
-                  background: "rgba(255,255,255,0.1)", border: "none",
-                  borderRadius: "4px", width: "20px", height: "20px",
-                  color: "#fff", cursor: "pointer", fontSize: "12px",
-                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "rgba(255,255,255,0.1)", border: "none", borderRadius: "4px",
+                  width: "20px", height: "20px", color: "#fff", cursor: "pointer",
+                  fontSize: "12px", display: "flex", alignItems: "center", justifyContent: "center",
                   opacity: 0.5, transition: "opacity 0.2s", padding: 0,
                 }}>×</button>
               </div>
             ))}
           </div>
+        </div>
+      )}
 
-          {names.length === 0 && (
-            <div style={{ color: "#00c8ff66", textAlign: "center", fontSize: "13px", fontFamily: "Rajdhani, sans-serif", padding: "8px", letterSpacing: "1px" }}>
-              ADICIONE PELO MENOS 2 NOMES
+      {/* 🔒 PAINEL SECRETO — abre clicando 5x no ⚡ do centro */}
+      {secretMode && (
+        <div style={{
+          width: "100%", maxWidth: "380px",
+          background: "rgba(20,0,0,0.8)", borderRadius: "12px",
+          border: "1px solid #ff6a0066", padding: "16px", zIndex: 2,
+          animation: "popIn 0.3s ease forwards",
+        }}>
+          <div style={{ color: "#ff6a00", fontFamily: "Orbitron, sans-serif", fontSize: "12px", letterSpacing: "3px", marginBottom: "14px", textAlign: "center" }}>
+            🔒 PAINEL SECRETO
+          </div>
+          {names.map((name, i) => (
+            <div key={i} style={{ marginBottom: "12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
+                <span style={{ color: "#eee", fontFamily: "Rajdhani, sans-serif", fontWeight: 700, letterSpacing: "1px" }}>{name}</span>
+                <span style={{ color: "#ff6a00", fontFamily: "Orbitron, sans-serif", fontSize: "13px" }}>
+                  {weights[name] ?? 1}x
+                </span>
+              </div>
+              <input type="range" min={1} max={10} value={weights[name] ?? 1}
+                onChange={(e) => setWeights((w) => ({ ...w, [name]: Number(e.target.value) }))}
+              />
             </div>
-          )}
+          ))}
+          <div style={{ color: "#ff6a0066", fontSize: "11px", textAlign: "center", fontFamily: "Rajdhani, sans-serif", marginTop: "8px", letterSpacing: "1px" }}>
+            Ninguém precisa saber 😈
+          </div>
         </div>
       )}
     </div>
