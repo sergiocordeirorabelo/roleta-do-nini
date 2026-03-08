@@ -192,13 +192,12 @@ export default function RoletaDoNini() {
     const diff = ((targetAngle - normalizedCurrent) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const totalRotation = extraSpins + diff;
 
-    const duration = 7000 + Math.random() * 2000;
+    const duration = 9000 + Math.random() * 2000;
     const start = performance.now();
     const startRot = currentRotation.current;
 
-    // Física real: desacelera exponencialmente, como uma roleta física
-    // O último 30% do tempo cobre apenas ~1 volta completa — passa fatia por fatia
-    const easeOut = (t) => 1 - Math.pow(1 - t, 6);
+    // Potência 8 = desaceleração muito gradual, para fatia por fatia
+    const easeOut = (t) => 1 - Math.pow(1 - t, 8);
 
     const animate = (now) => {
       const elapsed = now - start;
@@ -212,11 +211,9 @@ export default function RoletaDoNini() {
       } else {
         setSpinning(false);
         setWinner(names[winnerIndex]);
-        setTimeout(() => {
-          setShowWinner(true);
-          setShowCoffee(true);
-          setTimeout(() => setShowCoffee(false), 3500);
-        }, 200);
+        setShowWinner(true);
+        setShowCoffee(true);
+        setTimeout(() => setShowCoffee(false), 3500);
 
         // Volta ao ZERO após 4 segundos com animação suave
         setTimeout(() => {
