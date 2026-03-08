@@ -199,6 +199,7 @@ export default function RoletaDoNini() {
     // Potência 8 = desaceleração muito gradual, para fatia por fatia
     const easeOut = (t) => 1 - Math.pow(1 - t, 8);
 
+    let bannerShown = false;
     const animate = (now) => {
       const elapsed = now - start;
       const progress = Math.min(elapsed / duration, 1);
@@ -206,14 +207,20 @@ export default function RoletaDoNini() {
       const current = startRot + totalRotation * eased;
       currentRotation.current = current;
       drawWheel(current);
-      if (progress < 1) {
-        spinRef.current = requestAnimationFrame(animate);
-      } else {
-        setSpinning(false);
+
+      // Mostra banner quando está a ~97% — roda já quase parada, aparece na hora
+      if (progress >= 0.97 && !bannerShown) {
+        bannerShown = true;
         setWinner(names[winnerIndex]);
         setShowWinner(true);
         setShowCoffee(true);
         setTimeout(() => setShowCoffee(false), 3500);
+      }
+
+      if (progress < 1) {
+        spinRef.current = requestAnimationFrame(animate);
+      } else {
+        setSpinning(false);
 
         // Volta ao ZERO após 4 segundos com animação suave
         setTimeout(() => {
