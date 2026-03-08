@@ -234,28 +234,11 @@ export default function RoletaDoNini() {
           setTimeout(() => setShowCoffee(false), 3500);
         }, 200);
 
-        // Volta ao ZERO após 4 segundos
+        // Volta ao ZERO após 4 segundos — sem giro, só reposiciona discretamente
         setTimeout(() => {
           const returnTarget = getInitialRotation(names.length);
-          const fromRot = currentRotation.current;
-          // Garante que volta pela direção mais curta
-          let delta = returnTarget - (fromRot % (2 * Math.PI));
-          if (delta > Math.PI) delta -= 2 * Math.PI;
-          if (delta < -Math.PI) delta += 2 * Math.PI;
-          const returnDuration = 1200;
-          const returnStart = performance.now();
-          const easeInOut = (t) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
-          const returnAnim = (now) => {
-            const elapsed = now - returnStart;
-            const progress = Math.min(elapsed / returnDuration, 1);
-            const eased = easeInOut(progress);
-            const current = fromRot + delta * eased;
-            currentRotation.current = current;
-            drawWheel(current);
-            if (progress < 1) requestAnimationFrame(returnAnim);
-            else currentRotation.current = returnTarget;
-          };
-          requestAnimationFrame(returnAnim);
+          currentRotation.current = returnTarget;
+          drawWheel(returnTarget);
         }, 4000);
       }
     };
