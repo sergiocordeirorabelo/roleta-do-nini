@@ -187,16 +187,18 @@ export default function RoletaDoNini() {
     const arc = (2 * Math.PI) / names.length;
     const sliceCenter = winnerIndex * arc + arc / 2;
     const targetAngle = -sliceCenter - Math.PI / 2;
-    const extraSpins = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+    const extraSpins = (10 + Math.floor(Math.random() * 5)) * 2 * Math.PI;
     const normalizedCurrent = currentRotation.current % (2 * Math.PI);
     const diff = ((targetAngle - normalizedCurrent) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const totalRotation = extraSpins + diff;
 
-    const duration = 5000 + Math.random() * 1500;
+    const duration = 7000 + Math.random() * 2000;
     const start = performance.now();
     const startRot = currentRotation.current;
 
-    const easeOut = (t) => 1 - Math.pow(1 - t, 4);
+    // Física real: desacelera exponencialmente, como uma roleta física
+    // O último 30% do tempo cobre apenas ~1 volta completa — passa fatia por fatia
+    const easeOut = (t) => 1 - Math.pow(1 - t, 6);
 
     const animate = (now) => {
       const elapsed = now - start;
