@@ -192,10 +192,29 @@ export default function RoletaDoNini() {
     const diff = ((targetAngle - normalizedCurrent) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
     const totalRotation = extraSpins + diff;
 
-    const duration = 4000 + Math.random() * 1000;
+    const duration = 6500 + Math.random() * 1500;
     const start = performance.now();
     const startRot = currentRotation.current;
-    const easeOut = (t) => 1 - Math.pow(1 - t, 4);
+
+    // Easing com suspense: desacelera forte perto do fim, hesita, e desliza um último pedaço
+    const easeOut = (t) => {
+      if (t < 0.75) {
+        // Fase 1: desacelera normalmente
+        return 1 - Math.pow(1 - t / 0.75, 3) * 0.35;
+      } else if (t < 0.88) {
+        // Fase 2: quase para — movimento bem lento, suspense
+        const s = (t - 0.75) / 0.13;
+        return 0.65 + s * 0.20;
+      } else if (t < 0.94) {
+        // Fase 3: parece que vai parar... mas desliza mais um pouco
+        const s = (t - 0.88) / 0.06;
+        return 0.85 + s * 0.10;
+      } else {
+        // Fase 4: para de vez suavemente
+        const s = (t - 0.94) / 0.06;
+        return 0.95 + s * 0.05;
+      }
+    };
 
     const animate = (now) => {
       const elapsed = now - start;
@@ -365,11 +384,17 @@ export default function RoletaDoNini() {
               style={{ flex:1,background:"rgba(0,200,255,0.05)",border:"1px solid #00c8ff33",borderRadius:"8px",padding:"10px 14px",color:"#fff",fontFamily:"Rajdhani,sans-serif",fontSize:"15px",outline:"none" }} />
             <button onClick={addName} style={{ background:"linear-gradient(135deg,#ff6a00,#ee0979)",border:"none",borderRadius:"8px",padding:"10px 16px",color:"#fff",fontSize:"20px",cursor:"pointer" }}>+</button>
           </div>
-          <div style={{ display:"flex",flexWrap:"wrap",gap:"8px" }}>
+          <div style={{ display:"flex",flexDirection:"column",gap:"6px" }}>
             {names.map((name, i) => (
-              <div key={i} className="name-tag" style={{ display:"flex",alignItems:"center",gap:"6px",background: i === 0 ? "#1a8c1a33" : COLORS[i % COLORS.length]+"22",border:`1px solid ${i === 0 ? "#1a8c1a" : COLORS[i % COLORS.length]}55`,borderRadius:"6px",padding:"6px 10px 6px 12px" }}>
+              <div key={i} className="name-tag" style={{ display:"flex",alignItems:"center",gap:"8px",background: i === 0 ? "#1a8c1a33" : COLORS[i % COLORS.length]+"22",border:`1px solid ${i === 0 ? "#1a8c1a" : COLORS[i % COLORS.length]}55`,borderRadius:"6px",padding:"6px 10px 6px 12px" }}>
                 <div style={{ width:"8px",height:"8px",borderRadius:"2px",background: i === 0 ? "#1a8c1a" : COLORS[i % COLORS.length],flexShrink:0 }} />
-                <span style={{ color: i === 0 ? "#4ade80" : "#eee",fontFamily:"Rajdhani,sans-serif",fontSize:"14px",fontWeight:600,letterSpacing:"1px" }}>{name}</span>
+                <span style={{ flex:1,color: i === 0 ? "#4ade80" : "#eee",fontFamily:"Rajdhani,sans-serif",fontSize:"14px",fontWeight:600,letterSpacing:"1px" }}>{name}</span>
+                {i !== 0 && (
+                  <div style={{ display:"flex",flexDirection:"column",gap:"2px" }}>
+                    <button onClick={() => { if (i <= 1) return; const n = [...names]; [n[i], n[i-1]] = [n[i-1], n[i]]; setNames(n); }} style={{ background:"rgba(0,200,255,0.15)",border:"none",borderRadius:"3px",width:"20px",height:"18px",color:"#00c8ff",cursor: i <= 1 ? "not-allowed" : "pointer",fontSize:"10px",display:"flex",alignItems:"center",justifyContent:"center",opacity: i <= 1 ? 0.2 : 0.7,padding:0 }}>▲</button>
+                    <button onClick={() => { if (i >= names.length - 1) return; const n = [...names]; [n[i], n[i+1]] = [n[i+1], n[i]]; setNames(n); }} style={{ background:"rgba(0,200,255,0.15)",border:"none",borderRadius:"3px",width:"20px",height:"18px",color:"#00c8ff",cursor: i >= names.length - 1 ? "not-allowed" : "pointer",fontSize:"10px",display:"flex",alignItems:"center",justifyContent:"center",opacity: i >= names.length - 1 ? 0.2 : 0.7,padding:0 }}>▼</button>
+                  </div>
+                )}
                 {i !== 0 && (
                   <button className="remove-btn" onClick={() => removeName(i)} style={{ background:"rgba(255,255,255,0.1)",border:"none",borderRadius:"4px",width:"20px",height:"20px",color:"#fff",cursor:"pointer",fontSize:"12px",display:"flex",alignItems:"center",justifyContent:"center",opacity:0.5,transition:"opacity 0.2s",padding:0 }}>×</button>
                 )}
