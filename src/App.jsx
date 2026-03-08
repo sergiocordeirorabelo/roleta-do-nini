@@ -31,6 +31,34 @@ function pickWeightedWinner(names, weights, guaranteed) {
   return names.length - 1;
 }
 
+function CoffeeParticles() {
+  const particles = Array.from({ length: 14 }, (_, i) => ({
+    id: i,
+    left: 10 + Math.random() * 80,
+    delay: Math.random() * 0.8,
+    duration: 1.5 + Math.random() * 1,
+    size: 20 + Math.floor(Math.random() * 22),
+    sway: (Math.random() - 0.5) * 60,
+  }));
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 999, pointerEvents: "none", overflow: "hidden" }}>
+      {particles.map((p) => (
+        <div key={p.id} style={{
+          position: "absolute",
+          bottom: "-60px",
+          left: `${p.left}%`,
+          fontSize: `${p.size}px`,
+          animation: `coffeeRise ${p.duration}s ease-out ${p.delay}s forwards`,
+          "--sway": `${p.sway}px`,
+        }}>
+          ☕
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function RoletaDoNini() {
   const [names, setNames] = useState(DEFAULT_NAMES);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
@@ -39,6 +67,7 @@ export default function RoletaDoNini() {
   const [spinning, setSpinning] = useState(false);
   const [winner, setWinner] = useState(null);
   const [showWinner, setShowWinner] = useState(false);
+  const [showCoffee, setShowCoffee] = useState(false);
   const [editMode, setEditMode] = useState(false);
   const [secretMode, setSecretMode] = useState(false);
   const centerClickCount = useRef(0);
@@ -57,7 +86,6 @@ export default function RoletaDoNini() {
     const arc = (2 * Math.PI) / names.length;
 
     ctx.clearRect(0, 0, size, size);
-
     ctx.save();
     ctx.shadowColor = "rgba(0,0,0,0.5)";
     ctx.shadowBlur = 24;
@@ -70,7 +98,6 @@ export default function RoletaDoNini() {
     names.forEach((name, i) => {
       const startAngle = rot + i * arc;
       const endAngle = startAngle + arc;
-
       ctx.beginPath();
       ctx.moveTo(cx, cy);
       ctx.arc(cx, cy, radius, startAngle, endAngle);
@@ -138,6 +165,7 @@ export default function RoletaDoNini() {
   const spin = () => {
     if (spinning || names.length < 2) return;
     setShowWinner(false);
+    setShowCoffee(false);
     setWinner(null);
     setSpinning(true);
 
@@ -168,7 +196,11 @@ export default function RoletaDoNini() {
       } else {
         setSpinning(false);
         setWinner(names[winnerIndex]);
-        setTimeout(() => setShowWinner(true), 200);
+        setTimeout(() => {
+          setShowWinner(true);
+          setShowCoffee(true);
+          setTimeout(() => setShowCoffee(false), 3500);
+        }, 200);
       }
     };
 
@@ -213,6 +245,21 @@ export default function RoletaDoNini() {
         @keyframes floatUp { 0%{transform:translateY(0)} 50%{transform:translateY(-6px)} 100%{transform:translateY(0)} }
         @keyframes glowPulse { 0%,100%{box-shadow:0 0 20px #00c8ff44} 50%{box-shadow:0 0 50px #00c8ffaa, 0 0 100px #ff6a0022} }
         @keyframes scanline { 0%{transform:translateY(-100%)} 100%{transform:translateY(100vh)} }
+        @keyframes coffeeRise {
+          0%   { transform: translateY(0) translateX(0) scale(0.5); opacity: 1; }
+          60%  { opacity: 1; }
+          100% { transform: translateY(-110vh) translateX(var(--sway)) scale(1.2); opacity: 0; }
+        }
+        @keyframes pagueSlam {
+          0%   { transform: scale(0) rotate(-8deg); opacity: 0; }
+          50%  { transform: scale(1.15) rotate(3deg); opacity: 1; }
+          70%  { transform: scale(0.95) rotate(-1deg); }
+          100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        @keyframes shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
+        }
         .spin-btn:hover:not(:disabled) { transform: scale(1.06) translateY(-2px) !important; filter: brightness(1.15) !important; }
         .spin-btn:active:not(:disabled) { transform: scale(0.97) !important; }
         .name-tag:hover .remove-btn { opacity: 1 !important; }
@@ -225,6 +272,41 @@ export default function RoletaDoNini() {
         background: "linear-gradient(90deg, transparent, #00c8ff22, transparent)",
         animation: "scanline 6s linear infinite", zIndex: 1, pointerEvents: "none",
       }} />
+
+      {/* ☕ CAFÉ VOANDO */}
+      {showCoffee && <CoffeeParticles />}
+
+      {/* "PAGUE O CAFÉ" banner */}
+      {showWinner && winner && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, zIndex: 998,
+          display: "flex", justifyContent: "center", paddingTop: "16px",
+          pointerEvents: "none",
+        }}>
+          <div style={{
+            animation: "pagueSlam 0.6s cubic-bezier(0.34,1.56,0.64,1) forwards",
+            background: "linear-gradient(90deg, #7b3800, #ff6a00, #ffb347, #ff6a00, #7b3800)",
+            backgroundSize: "300% auto",
+            animationName: "pagueSlam",
+            padding: "10px 32px",
+            borderRadius: "50px",
+            boxShadow: "0 6px 32px rgba(255,106,0,0.6)",
+            border: "2px solid #ffb34788",
+          }}>
+            <span style={{
+              fontFamily: "Orbitron, sans-serif",
+              fontWeight: 900,
+              fontSize: "clamp(1rem, 4vw, 1.5rem)",
+              color: "#fff",
+              letterSpacing: "4px",
+              textShadow: "0 2px 12px rgba(0,0,0,0.5)",
+              textTransform: "uppercase",
+            }}>
+              ☕ Pague o Café! ☕
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Title */}
       <div style={{ textAlign: "center", marginBottom: "24px", animation: "floatUp 3s ease-in-out infinite", zIndex: 2 }}>
@@ -285,7 +367,7 @@ export default function RoletaDoNini() {
         {spinning ? "⚡ GIRANDO..." : "🎯 GIRAR"}
       </button>
 
-      {/* Winner */}
+      {/* Winner card */}
       {showWinner && winner && (
         <div style={{
           animation: "popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards",
@@ -293,6 +375,7 @@ export default function RoletaDoNini() {
           border: "2px solid #00c8ff", borderRadius: "12px",
           padding: "18px 36px", marginBottom: "20px", textAlign: "center",
           boxShadow: "0 8px 40px rgba(0,200,255,0.3)", zIndex: 2,
+          marginTop: "12px",
         }}>
           <div style={{ color: "#00c8ff", fontSize: "11px", letterSpacing: "4px", textTransform: "uppercase", fontFamily: "Orbitron, sans-serif" }}>
             ⚡ SORTEADO
@@ -302,7 +385,12 @@ export default function RoletaDoNini() {
             fontFamily: "Orbitron, sans-serif", fontWeight: 900,
             textShadow: "0 0 20px #00c8ff", marginTop: "6px", letterSpacing: "2px",
           }}>{winner}</div>
-          <div style={{ fontSize: "22px", marginTop: "6px" }}>🏆🎉⚡</div>
+          <div style={{
+            marginTop: "8px", fontSize: "13px", letterSpacing: "2px",
+            color: "#ff6a00", fontFamily: "Rajdhani, sans-serif", fontWeight: 700,
+          }}>
+            ☕ hora de pagar o café!
+          </div>
         </div>
       )}
 
@@ -373,8 +461,6 @@ export default function RoletaDoNini() {
           <div style={{ color: "#ff6a00", fontFamily: "Orbitron, sans-serif", fontSize: "12px", letterSpacing: "3px", marginBottom: "16px", textAlign: "center" }}>
             🔒 PAINEL SECRETO
           </div>
-
-          {/* Botão limpar tudo */}
           {guaranteed && (
             <button onClick={() => setGuaranteed(null)} style={{
               width: "100%", background: "rgba(255,106,0,0.1)",
@@ -387,7 +473,6 @@ export default function RoletaDoNini() {
               🎲 Voltar ao aleatório
             </button>
           )}
-
           {names.map((name, i) => {
             const isLocked = guaranteed === name;
             return (
@@ -411,14 +496,12 @@ export default function RoletaDoNini() {
                     <button
                       className="lock-btn"
                       onClick={() => setGuaranteed(isLocked ? null : name)}
-                      title={isLocked ? "Desativar garantia" : "Garantir que caia neste"}
                       style={{
                         background: isLocked ? "#ff6a00" : "rgba(255,106,0,0.15)",
-                        border: "1px solid #ff6a0066",
-                        borderRadius: "6px", padding: "3px 8px",
-                        color: "#fff", cursor: "pointer", fontSize: "13px",
-                        fontFamily: "Rajdhani, sans-serif", fontWeight: 700,
-                        opacity: isLocked ? 1 : 0.6,
+                        border: "1px solid #ff6a0066", borderRadius: "6px",
+                        padding: "3px 8px", color: "#fff", cursor: "pointer",
+                        fontSize: "13px", fontFamily: "Rajdhani, sans-serif",
+                        fontWeight: 700, opacity: isLocked ? 1 : 0.6,
                         transition: "all 0.2s", letterSpacing: "1px",
                       }}
                     >
@@ -439,7 +522,6 @@ export default function RoletaDoNini() {
               </div>
             );
           })}
-
           <div style={{ color: "#ff6a0044", fontSize: "11px", textAlign: "center", fontFamily: "Rajdhani, sans-serif", marginTop: "8px", letterSpacing: "1px" }}>
             Ninguém precisa saber 😈
           </div>
