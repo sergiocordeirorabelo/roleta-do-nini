@@ -2,8 +2,6 @@ import { useState, useRef, useEffect } from "react";
 
 const DEFAULT_NAMES = ["Nilmar", "Gualter", "Tiago", "Celso", "Sérgio", "Daniel"];
 
-// 🎲 PESOS SECRETOS — quanto maior, mais chance de cair
-// Todos com 1 = chance igual. Coloca 3 em alguém = 3x mais chance!
 const DEFAULT_WEIGHTS = {
   "Nilmar":  1,
   "Gualter": 1,
@@ -19,7 +17,11 @@ const COLORS = [
   "#FF5722", "#00BCD4", "#8BC34A", "#FF9800",
 ];
 
-function pickWeightedWinner(names, weights) {
+function pickWeightedWinner(names, weights, guaranteed) {
+  if (guaranteed) {
+    const idx = names.indexOf(guaranteed);
+    if (idx !== -1) return idx;
+  }
   const totalWeight = names.reduce((sum, n) => sum + (weights[n] ?? 1), 0);
   let rand = Math.random() * totalWeight;
   for (let i = 0; i < names.length; i++) {
@@ -32,6 +34,7 @@ function pickWeightedWinner(names, weights) {
 export default function RoletaDoNini() {
   const [names, setNames] = useState(DEFAULT_NAMES);
   const [weights, setWeights] = useState(DEFAULT_WEIGHTS);
+  const [guaranteed, setGuaranteed] = useState(null);
   const [newName, setNewName] = useState("");
   const [spinning, setSpinning] = useState(false);
   const [winner, setWinner] = useState(null);
@@ -93,7 +96,6 @@ export default function RoletaDoNini() {
       ctx.restore();
     });
 
-    // Center circle — clicável
     ctx.beginPath();
     ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
     const grad = ctx.createRadialGradient(cx - 6, cy - 6, 2, cx, cy, 28);
@@ -139,11 +141,8 @@ export default function RoletaDoNini() {
     setWinner(null);
     setSpinning(true);
 
-    // Escolhe o vencedor com peso secreto
-    const winnerIndex = pickWeightedWinner(names, weights);
+    const winnerIndex = pickWeightedWinner(names, weights, guaranteed);
     const arc = (2 * Math.PI) / names.length;
-
-    // Calcula ângulo para parar na fatia do vencedor
     const sliceCenter = winnerIndex * arc + arc / 2;
     const targetAngle = -sliceCenter - Math.PI / 2;
     const extraSpins = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
@@ -189,6 +188,7 @@ export default function RoletaDoNini() {
     const removed = names[i];
     setNames(names.filter((_, idx) => idx !== i));
     setWeights((w) => { const nw = { ...w }; delete nw[removed]; return nw; });
+    if (guaranteed === removed) setGuaranteed(null);
     setShowWinner(false);
     setWinner(null);
   };
@@ -217,6 +217,7 @@ export default function RoletaDoNini() {
         .spin-btn:active:not(:disabled) { transform: scale(0.97) !important; }
         .name-tag:hover .remove-btn { opacity: 1 !important; }
         input[type=range] { accent-color: #ff6a00; width: 100%; }
+        .lock-btn:hover { opacity: 1 !important; }
       `}</style>
 
       <div style={{
@@ -361,31 +362,85 @@ export default function RoletaDoNini() {
         </div>
       )}
 
-      {/* 🔒 PAINEL SECRETO — abre clicando 5x no ⚡ do centro */}
+      {/* 🔒 PAINEL SECRETO */}
       {secretMode && (
         <div style={{
           width: "100%", maxWidth: "380px",
-          background: "rgba(20,0,0,0.8)", borderRadius: "12px",
+          background: "rgba(20,0,0,0.85)", borderRadius: "12px",
           border: "1px solid #ff6a0066", padding: "16px", zIndex: 2,
           animation: "popIn 0.3s ease forwards",
         }}>
-          <div style={{ color: "#ff6a00", fontFamily: "Orbitron, sans-serif", fontSize: "12px", letterSpacing: "3px", marginBottom: "14px", textAlign: "center" }}>
+          <div style={{ color: "#ff6a00", fontFamily: "Orbitron, sans-serif", fontSize: "12px", letterSpacing: "3px", marginBottom: "16px", textAlign: "center" }}>
             🔒 PAINEL SECRETO
           </div>
-          {names.map((name, i) => (
-            <div key={i} style={{ marginBottom: "12px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-                <span style={{ color: "#eee", fontFamily: "Rajdhani, sans-serif", fontWeight: 700, letterSpacing: "1px" }}>{name}</span>
-                <span style={{ color: "#ff6a00", fontFamily: "Orbitron, sans-serif", fontSize: "13px" }}>
-                  {weights[name] ?? 1}x
-                </span>
+
+          {/* Botão limpar tudo */}
+          {guaranteed && (
+            <button onClick={() => setGuaranteed(null)} style={{
+              width: "100%", background: "rgba(255,106,0,0.1)",
+              border: "1px solid #ff6a0044", borderRadius: "8px",
+              color: "#ff6a00", fontFamily: "Rajdhani, sans-serif",
+              fontSize: "13px", fontWeight: 700, letterSpacing: "2px",
+              padding: "8px", cursor: "pointer", marginBottom: "14px",
+              textTransform: "uppercase",
+            }}>
+              🎲 Voltar ao aleatório
+            </button>
+          )}
+
+          {names.map((name, i) => {
+            const isLocked = guaranteed === name;
+            return (
+              <div key={i} style={{
+                marginBottom: "14px",
+                background: isLocked ? "rgba(255,106,0,0.08)" : "transparent",
+                borderRadius: "8px", padding: isLocked ? "10px" : "0",
+                border: isLocked ? "1px solid #ff6a0044" : "1px solid transparent",
+                transition: "all 0.2s",
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
+                  <span style={{ color: isLocked ? "#ff6a00" : "#eee", fontFamily: "Rajdhani, sans-serif", fontWeight: 700, letterSpacing: "1px", fontSize: "15px" }}>
+                    {isLocked ? "🎯 " : ""}{name}
+                  </span>
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    {!isLocked && (
+                      <span style={{ color: "#ff6a00", fontFamily: "Orbitron, sans-serif", fontSize: "12px" }}>
+                        {weights[name] ?? 1}x
+                      </span>
+                    )}
+                    <button
+                      className="lock-btn"
+                      onClick={() => setGuaranteed(isLocked ? null : name)}
+                      title={isLocked ? "Desativar garantia" : "Garantir que caia neste"}
+                      style={{
+                        background: isLocked ? "#ff6a00" : "rgba(255,106,0,0.15)",
+                        border: "1px solid #ff6a0066",
+                        borderRadius: "6px", padding: "3px 8px",
+                        color: "#fff", cursor: "pointer", fontSize: "13px",
+                        fontFamily: "Rajdhani, sans-serif", fontWeight: 700,
+                        opacity: isLocked ? 1 : 0.6,
+                        transition: "all 0.2s", letterSpacing: "1px",
+                      }}
+                    >
+                      {isLocked ? "🔒 ATIVO" : "🔓 fixar"}
+                    </button>
+                  </div>
+                </div>
+                {!isLocked && (
+                  <input type="range" min={1} max={10} value={weights[name] ?? 1}
+                    onChange={(e) => setWeights((w) => ({ ...w, [name]: Number(e.target.value) }))}
+                  />
+                )}
+                {isLocked && (
+                  <div style={{ color: "#ff6a0099", fontSize: "11px", fontFamily: "Rajdhani, sans-serif", letterSpacing: "1px" }}>
+                    GARANTIDO — vai cair sempre neste 😈
+                  </div>
+                )}
               </div>
-              <input type="range" min={1} max={10} value={weights[name] ?? 1}
-                onChange={(e) => setWeights((w) => ({ ...w, [name]: Number(e.target.value) }))}
-              />
-            </div>
-          ))}
-          <div style={{ color: "#ff6a0066", fontSize: "11px", textAlign: "center", fontFamily: "Rajdhani, sans-serif", marginTop: "8px", letterSpacing: "1px" }}>
+            );
+          })}
+
+          <div style={{ color: "#ff6a0044", fontSize: "11px", textAlign: "center", fontFamily: "Rajdhani, sans-serif", marginTop: "8px", letterSpacing: "1px" }}>
             Ninguém precisa saber 😈
           </div>
         </div>
