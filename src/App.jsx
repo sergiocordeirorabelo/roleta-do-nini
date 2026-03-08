@@ -208,8 +208,8 @@ export default function RoletaDoNini() {
       currentRotation.current = current;
       drawWheel(current);
 
-      // Mostra banner quando está a ~97% — roda já quase parada, aparece na hora
-      if (progress >= 0.97 && !bannerShown) {
+      // Mostra banner quando está a ~85% — roda já lentíssima, banner aparece na hora
+      if (progress >= 0.85 && !bannerShown) {
         bannerShown = true;
         setWinner(names[winnerIndex]);
         setShowWinner(true);
